@@ -55,7 +55,7 @@ func (m *mock) Add(d time.Duration) {
 
 	m.now = m.now.Add(d)
 	for t, signal := range m.sleepers {
-		if m.now.Compare(t) >= 0 {
+		if !m.now.Before(t) {
 			close(signal)
 			delete(m.sleepers, t)
 		}
