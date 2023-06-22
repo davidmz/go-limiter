@@ -3,8 +3,8 @@ package internal
 import (
 	"time"
 
-	"github.com/davidmz/go-ratelimiter/internal/clock"
-	"github.com/davidmz/go-ratelimiter/internal/engine"
+	"github.com/davidmz/go-limiter/internal/clock"
+	"github.com/davidmz/go-limiter/internal/engine"
 )
 
 // Configurable limiter implementation

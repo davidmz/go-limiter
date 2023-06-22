@@ -1,4 +1,4 @@
-module github.com/davidmz/go-ratelimiter
+module github.com/davidmz/go-limiter
 
 go 1.20
 

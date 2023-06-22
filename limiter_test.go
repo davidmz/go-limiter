@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	limiter "github.com/davidmz/go-ratelimiter"
-	"github.com/davidmz/go-ratelimiter/internal"
-	"github.com/davidmz/go-ratelimiter/internal/clock"
-	"github.com/davidmz/go-ratelimiter/internal/engine"
+	limiter "github.com/davidmz/go-limiter"
+	"github.com/davidmz/go-limiter/internal"
+	"github.com/davidmz/go-limiter/internal/clock"
+	"github.com/davidmz/go-limiter/internal/engine"
 	"github.com/stretchr/testify/suite"
 )
 

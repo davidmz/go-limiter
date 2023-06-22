@@ -3,9 +3,9 @@ package limiter
 import (
 	"time"
 
-	"github.com/davidmz/go-ratelimiter/internal"
-	"github.com/davidmz/go-ratelimiter/internal/clock"
-	"github.com/davidmz/go-ratelimiter/internal/engine"
+	"github.com/davidmz/go-limiter/internal"
+	"github.com/davidmz/go-limiter/internal/clock"
+	"github.com/davidmz/go-limiter/internal/engine"
 )
 
 // Limiter is an interface that defines the contract for a resource limiter.
