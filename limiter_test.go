@@ -6,7 +6,9 @@ import (
 	"time"
 
 	limiter "github.com/davidmz/go-ratelimiter"
-	"github.com/davidmz/go-ratelimiter/clock"
+	"github.com/davidmz/go-ratelimiter/internal"
+	"github.com/davidmz/go-ratelimiter/internal/clock"
+	"github.com/davidmz/go-ratelimiter/internal/engine"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -42,7 +44,11 @@ func TestLimiterTestSuite(t *testing.T) {
 func (s *LimiterTestSuite) SetupTest() {
 	s.results = new(Results)
 	s.clock = clock.NewMock()
-	s.limiter = limiter.New(time.Second, limiter.WithClock(s.clock))
+	s.limiter = &internal.Limiter{
+		Interval: time.Second,
+		Clock:    s.clock,
+		Engine:   engine.NewCASBased(),
+	}
 }
 
 func (s *LimiterTestSuite) TestOneClient() {
