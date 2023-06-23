@@ -11,6 +11,9 @@ type Clock interface {
 
 type Mock interface {
 	Clock
+	// The following are time management methods. They are not thread-safe and
+	// MUST be called from the single management goroutine.
+	Set(time.Time)
 	Add(time.Duration)
 	WaitForAll()
 }
