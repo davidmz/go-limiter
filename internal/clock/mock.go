@@ -1,7 +1,6 @@
 package clock
 
 import (
-	"runtime"
 	"sync"
 	"time"
 )
@@ -9,16 +8,24 @@ import (
 // Mock Clock
 
 type breakpoint struct {
+	sync.WaitGroup
 	At time.Time
 	S  chan struct{}
 }
 
 func newBreakpoint(at time.Time) *breakpoint {
-	return &breakpoint{
+	br := &breakpoint{
 		At: at,
 		S:  make(chan struct{}),
 	}
+	br.Add(1)
+	return br
+}
 
+func (br *breakpoint) release() {
+	close(br.S)
+	// Wait for all sleepers to start
+	br.Wait()
 }
 
 type mock struct {
@@ -44,14 +51,8 @@ func (m *mock) Now() time.Time {
 	return m.now
 }
 
-func (m *mock) startThread() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.threads.Add(1)
-}
-
 func (m *mock) Go(fn func()) {
-	m.startThread()
+	m.threads.Add(1)
 	go func() {
 		defer m.threads.Done()
 		fn()
@@ -59,24 +60,28 @@ func (m *mock) Go(fn func()) {
 }
 
 func (m *mock) Sleep(d time.Duration) {
-	if d <= 0 {
-		m.threads.Done()
-		m.startThread()
+	if d < 0 {
+		panic("attempt to sleep with negative duration")
+	}
+
+	if d == 0 {
 		return
 	}
-	br := m.breakpointAt(d)
+	br := m.addBreakpointAt(d)
 	go m.threads.Done()
 	<-br.S
-	m.startThread()
+	m.threads.Add(1)
+	br.Done()
 }
 
-func (m *mock) breakpointAt(d time.Duration) *breakpoint {
+func (m *mock) addBreakpointAt(d time.Duration) *breakpoint {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	deadline := m.now.Add(d)
 	for i, br := range m.breakpoints {
 		if br.At.Equal(deadline) {
+			br.Add(1)
 			return br
 		}
 		if br.At.After(deadline) {
@@ -94,6 +99,10 @@ func (m *mock) breakpointAt(d time.Duration) *breakpoint {
 }
 
 func (m *mock) Set(newTime time.Time) {
+	if newTime.Before(m.now) {
+		panic("attempt to set time before current")
+	}
+
 	// Before moving the time forward, we need to make sure that all
 	// sleepers are blocked on their Sleep calls.
 	m.threads.Wait()
@@ -102,9 +111,8 @@ func (m *mock) Set(newTime time.Time) {
 		if br == nil {
 			break
 		}
-		close(br.S)
+		br.release()
 		// Wait for all sleepers to sleep again
-		runtime.Gosched()
 		m.threads.Wait()
 	}
 
@@ -121,8 +129,7 @@ func (m *mock) WaitForAll() {
 			return
 		}
 		br := m.moveToNextBreakpoint(m.breakpoints[0].At)
-		close(br.S)
-		runtime.Gosched()
+		br.release()
 	}
 }
 
