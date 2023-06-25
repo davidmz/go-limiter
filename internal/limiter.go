@@ -18,11 +18,8 @@ type Limiter struct {
 func (l *Limiter) Take(timeout time.Duration) bool {
 	for {
 		wait := l.Engine.TryTake(l.Clock.Now(), l.Interval)
-		if wait == 0 {
-			return true
-		}
-		if wait > timeout {
-			return false
+		if wait == 0 || wait > timeout {
+			return wait == 0
 		}
 		timeout -= wait
 		l.Clock.Sleep(wait)

@@ -22,12 +22,13 @@ type LimiterTestSuite struct {
 
 func (s *LimiterTestSuite) AddClock(duration time.Duration) {
 	s.clock.Add(duration)
-	// Must really sleep to complete all async operations
-	time.Sleep(10 * time.Millisecond)
 }
 
 func (s *LimiterTestSuite) RunCLient(timeout time.Duration) {
-	s.results.Add(s.limiter.Take(timeout))
+	s.clock.Go(func() {
+		taken := s.limiter.Take(timeout)
+		s.results.Add(taken)
+	})
 }
 
 func (s *LimiterTestSuite) ExpectResults(ok, fail int) {
@@ -52,7 +53,7 @@ func (s *LimiterTestSuite) SetupTest() {
 }
 
 func (s *LimiterTestSuite) TestOneClient() {
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 
 	// Should serve first client immediately
 	s.AddClock(0)
@@ -63,8 +64,8 @@ func (s *LimiterTestSuite) TestTwoClients() {
 
 	// T = 0s
 	// First client got 'true'.
-	go s.RunCLient(1500 * time.Millisecond)
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 	s.AddClock(0)
 	s.ExpectResults(1, 0)
 
@@ -80,9 +81,9 @@ func (s *LimiterTestSuite) TestTwoClients() {
 }
 
 func (s *LimiterTestSuite) TestThreeClients() {
-	go s.RunCLient(1500 * time.Millisecond)
-	go s.RunCLient(1500 * time.Millisecond)
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 
 	// T = 0s
 	// First client got 'true'.
@@ -99,14 +100,14 @@ func (s *LimiterTestSuite) TestThreeClients() {
 func (s *LimiterTestSuite) TestSeveralClientsWithDelay() {
 	// T = 0s
 	// First client got 'true'.
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 	s.AddClock(0)
 	s.ExpectResults(1, 0)
 
 	// T = 0.5s
 	// Run second client, it waiting
 	s.AddClock(500 * time.Millisecond)
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 	s.AddClock(0)
 	s.ExpectResults(1, 0)
 
@@ -118,7 +119,7 @@ func (s *LimiterTestSuite) TestSeveralClientsWithDelay() {
 	// T = 1.5s
 	// Run another client, it waiting
 	s.AddClock(500 * time.Millisecond)
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 	s.AddClock(0)
 	s.ExpectResults(2, 0)
 
@@ -132,7 +133,7 @@ func (s *LimiterTestSuite) TestSeveralClientsWithDelay() {
 	// After long time, run another client. It should receive 'true'
 	// immediately.
 	s.AddClock(2 * time.Second)
-	go s.RunCLient(1500 * time.Millisecond)
+	s.RunCLient(1500 * time.Millisecond)
 	s.AddClock(0)
 	s.ExpectResults(4, 0)
 }
@@ -141,7 +142,7 @@ func (s *LimiterTestSuite) TestClientsWaves() {
 	// T = 0s
 	// First wave. First client should got 'true' immediately.
 	for i := 0; i < 5; i++ {
-		go s.RunCLient(2500 * time.Millisecond)
+		s.RunCLient(2500 * time.Millisecond)
 	}
 	s.AddClock(0)
 	s.ExpectResults(1, 0)
@@ -155,7 +156,7 @@ func (s *LimiterTestSuite) TestClientsWaves() {
 	// Second wave, no changes in result
 	s.AddClock(500 * time.Millisecond)
 	for i := 0; i < 5; i++ {
-		go s.RunCLient(2500 * time.Millisecond)
+		s.RunCLient(2500 * time.Millisecond)
 	}
 	s.AddClock(0)
 	s.ExpectResults(2, 0)

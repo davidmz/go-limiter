@@ -1,7 +1,6 @@
 package clock_test
 
 import (
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -34,48 +33,45 @@ func (s *ClockTestSuite) TestNow() {
 
 func (s *ClockTestSuite) TestSleep() {
 	end := time.Time{}
-	wg := &sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	s.clock.Go(func() {
 		s.clock.Sleep(time.Second)
 		end = s.clock.Now()
-	}()
+	})
 
-	// Wait for goroutine to start
-	runtime.Gosched()
 	s.clock.Add(time.Second)
 
-	// Wait for goroutine to finish
-	wg.Wait()
-
 	s.Equal(time.Second, end.Sub(s.startAt))
+}
+
+func (s *ClockTestSuite) TestSleep0() {
+	end := time.Time{}
+
+	s.clock.Go(func() {
+		s.clock.Sleep(0)
+		end = s.clock.Now()
+	})
+
+	s.clock.Add(0)
+
+	s.True(end.Equal(s.startAt))
 }
 
 func (s *ClockTestSuite) TestSleepTwoGoroutines() {
 	var results []time.Duration
 	lk := &sync.Mutex{}
-	wg := &sync.WaitGroup{}
 
-	wg.Add(2)
 	for i := 0; i < 2; i++ {
-		go func() {
-			defer wg.Done()
+		s.clock.Go(func() {
 			s.clock.Sleep(time.Second)
 
 			lk.Lock()
 			defer lk.Unlock()
 			results = append(results, s.clock.Now().Sub(s.startAt))
-		}()
+		})
 	}
 
-	// Wait for goroutines to start
-	runtime.Gosched()
 	s.clock.Add(time.Second)
-
-	// Wait for goroutines to finish
-	wg.Wait()
 
 	s.Equal([]time.Duration{time.Second, time.Second}, results)
 }
@@ -83,30 +79,63 @@ func (s *ClockTestSuite) TestSleepTwoGoroutines() {
 func (s *ClockTestSuite) TestSequentialSleep() {
 	var results []time.Duration
 	lk := &sync.Mutex{}
-	wg := &sync.WaitGroup{}
 
-	wg.Add(5)
 	for i := 0; i < 5; i++ {
-		go func(n int) {
-			defer wg.Done()
-			s.clock.Sleep(time.Duration(n) * time.Second)
+		i := i
+		s.clock.Go(func() {
+			s.clock.Sleep(time.Duration(i) * time.Second)
 
 			lk.Lock()
 			defer lk.Unlock()
 			results = append(results, s.clock.Now().Sub(s.startAt))
-		}(i)
+		})
 	}
 
-	// Wait for goroutines to start
-	runtime.Gosched()
 	s.clock.WaitForAll()
-
-	// Wait for goroutines to finish
-	wg.Wait()
 
 	s.Equal([]time.Duration{
 		0 * time.Second,
 		1 * time.Second,
+		2 * time.Second,
+		3 * time.Second,
+		4 * time.Second,
+	}, results)
+}
+
+func (s *ClockTestSuite) TestSequentialWaves() {
+	var results []time.Duration
+	lk := &sync.Mutex{}
+
+	for i := 0; i < 3; i++ {
+		i := i
+		s.clock.Go(func() {
+			s.clock.Sleep(time.Duration(i) * time.Second)
+
+			lk.Lock()
+			defer lk.Unlock()
+			results = append(results, s.clock.Now().Sub(s.startAt))
+		})
+	}
+
+	s.clock.Add(2 * time.Second)
+
+	for i := 0; i < 3; i++ {
+		i := i
+		s.clock.Go(func() {
+			s.clock.Sleep(time.Duration(i) * time.Second)
+
+			lk.Lock()
+			defer lk.Unlock()
+			results = append(results, s.clock.Now().Sub(s.startAt))
+		})
+	}
+
+	s.clock.WaitForAll()
+
+	s.Equal([]time.Duration{
+		0 * time.Second,
+		1 * time.Second,
+		2 * time.Second,
 		2 * time.Second,
 		3 * time.Second,
 		4 * time.Second,
